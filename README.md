@@ -11,11 +11,11 @@ Il se compose de deux volets :
    forme de tenseur, comment les connecteurs et quantificateurs logiques
    sont traduits en opérations différentiables, et comment la
    satisfiabilité d'une base de formules devient une fonction de perte
-   pour l'entraînement d'un réseau de neurones.
-2. Une implémentation pratique basée sur la bibliothèque
+   pour l'entraînement d'un réseau de neurones ( [Tutoriels](https://github.com/vleonel-junior/logic-tensor-networks/tree/main/code/tutorials) ).
+2. Des implémentations pratiques ( [Exemples](https://github.com/vleonel-junior/logic-tensor-networks/tree/main/code/examples) ) basées sur la bibliothèque
    [LTNtorch](https://github.com/logictensornetworks/LTNtorch), avec une
    comparaison expérimentale entre un classifieur entraîné avec et sans
-   contraintes logiques.
+   contraintes logiques ( [LTN-MNIST](https://github.com/vleonel-junior/logic-tensor-networks/tree/main/code/examples/4-semi-supervised_pattern_recognition.ipynb) ).
 
 ## Contenu du dépôt
 
