@@ -49,12 +49,10 @@ logic-tensor-networks/
 │       └── images/
 │
 └── presentation/
-    ├── main.tex          source unique de la présentation (Beamer)
-    ├── main-notes.tex    wrapper qui active les notes de l'orateur
-    ├── images/           figures utilisées dans les diapositives
-    ├── build.sh          construit main.pdf et main-notes.pdf
-    ├── latexmkrc         configuration latexmk (active -shell-escape pour minted)
-    └── README.md         détails de compilation et conventions d'écriture
+    ├── main.tex          source de la présentation (Beamer)
+    ├── main.pdf           présentation compilée
+    ├── images/            figures utilisées dans les diapositives
+    └── README.md          compilation et conventions d'écriture
 ```
 
 ### Tutoriels (`code/tutorials/`)
@@ -123,19 +121,10 @@ coloration syntaxique, via `-shell-escape`).
 Depuis `presentation/` :
 
 ```bash
-latexmk -pdf main.tex          # -> main.pdf         (diapos, sans notes, à partager)
-latexmk -pdf main-notes.tex    # -> main-notes.pdf    (diapos + notes de l'orateur)
+latexmk -pdf main.tex
 ```
 
-ou, pour construire les deux d'un coup :
-
-```bash
-cd presentation
-./build.sh
-```
-
-Le détail des conventions d'écriture (modes de notes, contraintes sur les
-frames `minted`, palette de couleurs) est documenté dans
+Le détail des conventions d'écriture est documenté dans
 [`presentation/README.md`](presentation/README.md).
 
 ## Références
