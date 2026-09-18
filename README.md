@@ -124,9 +124,6 @@ Depuis `presentation/` :
 latexmk -pdf main.tex
 ```
 
-Le détail des conventions d'écriture est documenté dans
-[`presentation/README.md`](presentation/README.md).
-
 ## Références
 
 - Badreddine, S., d'Avila Garcez, A., Serafini, L., & Spranger, M. (2022).

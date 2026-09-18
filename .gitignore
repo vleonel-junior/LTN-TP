@@ -13,6 +13,7 @@
 _minted*/
 presentation/build*.log
 presentation/main-notes.pdf
+presentation/README.md
 
 # --- Python / Jupyter ---
 __pycache__/
