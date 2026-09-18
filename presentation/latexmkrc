@@ -1,0 +1,5 @@
+# Compilation : latexmk -pdf main.tex
+# -shell-escape est requis par minted (appel externe a Pygments).
+$pdflatex = 'pdflatex -shell-escape -interaction=nonstopmode -synctex=1 %O %S';
+$pdf_mode = 1;
+$clean_ext = 'nav snm vrb pyg';

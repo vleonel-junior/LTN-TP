@@ -1,0 +1,19 @@
+# --- LaTeX ---
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pyg
+_minted*/
+presentation/build*.log
+presentation/main-notes.pdf
+
+# --- Python / Jupyter ---
+__pycache__/
+.ipynb_checkpoints/

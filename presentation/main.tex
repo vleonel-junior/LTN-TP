@@ -1,0 +1,1935 @@
+% !TeX program = pdflatex  (compiler avec -shell-escape pour minted)
+\documentclass[aspectratio=169,10pt]{beamer}
+
+% ============================================================
+%  THEME
+% ============================================================
+\usetheme[progressbar=frametitle,
+          numbering=fraction,
+          block=fill,
+          sectionpage=progressbar]{metropolis}
+
+% ------------------------------------------------------------
+%  PALETTE : une seule couleur d'accent + niveaux de gris.
+%  Pour changer toute l'identite du deck, modifier ces 2 lignes.
+% ------------------------------------------------------------
+\definecolor{accent}{HTML}{A6192E}   % crimson sobre
+\definecolor{ink}{HTML}{1A1A1A}      % noir du texte
+\definecolor{ash}{HTML}{6E6E6E}      % gris secondaire
+\definecolor{mist}{HTML}{F2F2F2}     % fond des blocs / du code
+
+\setbeamercolor{normal text}{fg=ink, bg=white}
+\setbeamercolor{alerted text}{fg=accent}
+\setbeamercolor{frametitle}{bg=ink, fg=white}
+\setbeamercolor{progress bar}{fg=accent, bg=mist}
+\setbeamercolor{block title}{bg=mist, fg=ink}
+\setbeamercolor{block body}{bg=mist, fg=ink}
+\setbeamercolor{title separator}{fg=accent}
+
+% ============================================================
+%  LANGUE & ENCODAGE
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{csquotes}
+\usepackage{etoolbox}
+
+% ============================================================
+%  NOTES DE L'ORATEUR  —  deux sorties depuis une seule source
+% ------------------------------------------------------------
+%  Par defaut : AUCUNE note (PDF propre, celui qu'on partage).
+%  Pour obtenir la version annotee, voir build.ps1 / le README.
+% ============================================================
+\providecommand{\NOTESMODE}{off}
+\ifdefstring{\NOTESMODE}{cote}{\setbeameroption{show notes on second screen=right}}{}
+\ifdefstring{\NOTESMODE}{pages}{\setbeameroption{show notes}}{}
+\ifdefstring{\NOTESMODE}{seules}{\setbeameroption{show only notes}}{}
+\ifdefstring{\NOTESMODE}{off}{\setbeameroption{hide notes}}{}
+
+% mise en forme des pages de notes : gabarit minimal.
+% On supprime la vignette et l'arborescence de navigation — en mode
+% « cote », la diapo est deja affichee a gauche : tout l'espace va au texte.
+\setbeamercolor{note page}{bg=white, fg=ink}
+\setbeamertemplate{note page}{%
+  \setlength{\parskip}{0.30em}%
+  \setlength{\parindent}{0pt}%
+  \footnotesize
+  \insertnote%
+  \vfill
+}
+% Contrainte a respecter : une note = UNE page. A cette taille, cela
+% represente environ 230-240 mots, soit ~1 min 30 de parole.
+
+% ============================================================
+%  MATHS
+% ============================================================
+\usepackage{amsmath, amssymb, mathtools, bm}
+
+% ============================================================
+%  FIGURES & ANNOTATION DE FORMULES
+% ============================================================
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array} % pour les colonnes de tableau centrees verticalement (m{})
+\usepackage{tikz}
+\usetikzlibrary{tikzmark, arrows.meta, positioning, calc, fit, backgrounds}
+\graphicspath{{figures/}}
+
+% Annoter un terme d'une formule : \annot[<decalage>]{<tikzmark>}{<texte>}
+\newcommand{\annot}[3][0.8cm]{%
+  \begin{tikzpicture}[overlay, remember picture]
+    \draw[accent, -{Stealth[length=4pt]}, thin]
+      ([yshift=-#1]pic cs:#2) -- ([yshift=-2pt]pic cs:#2);
+    \node[accent, font=\scriptsize, anchor=north]
+      at ([yshift=-#1]pic cs:#2) {#3};
+  \end{tikzpicture}%
+}
+
+% ============================================================
+%  CODE
+% ============================================================
+\usepackage{minted}
+\setminted{
+  fontsize=\scriptsize,
+  bgcolor=mist,
+  linenos=false,
+  frame=none,
+  breaklines=true,
+  autogobble=true,
+}
+\usemintedstyle{friendly}
+
+% ============================================================
+%  RACCOURCIS LTN
+% ============================================================
+\newcommand{\G}{\mathcal{G}}                      % grounding function
+\newcommand{\dom}{\mathcal{D}}                    % domaine
+\newcommand{\KB}{\mathcal{K}}                     % base de connaissances
+\newcommand{\SatAgg}{\mathrm{SatAgg}}
+\newcommand{\Forall}{\forall}
+\newcommand{\Exists}{\exists}
+
+% ============================================================
+%  PAGE DE TITRE
+% ============================================================
+\title{Logic Tensor Networks}
+\subtitle{Apprendre sous contrainte logique : une introduction pratique à l'IA neuro-symbolique}
+\author{Léonel Junior Vodounou}
+\institute{\textcolor{ash}{[institution à compléter]}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+\section{Introduction / Motivation}
+
+% ------------------------------------------------------------------
+%  SLIDE 1 — Deux paradigmes
+%  Idée unique : les deux paradigmes ne sont pas deux boîtes à outils
+%  concurrentes, ce sont deux réponses opposées à UNE question —
+%  d'où vient la structure du problème. Cet axe est celui que le
+%  Bitter Lesson (slide 2) prétend trancher.
+% ------------------------------------------------------------------
+\begin{frame}{IA symbolique et apprentissage profond}
+  \begin{center}
+  \begin{tikzpicture}[x=1cm, y=1cm]
+
+    % --- les deux extrémités de l'axe : la réponse de chaque camp -----
+    \node[ash, font=\small\itshape, anchor=west] at (0, 1.55)
+      {écrite par l'humain};
+    \node[ash, font=\small\itshape, anchor=east] at (12, 1.55)
+      {apprise depuis les données};
+
+    % --- axe ---------------------------------------------------------
+    \draw[ash, {Stealth[length=6pt]}-{Stealth[length=6pt]}, semithick]
+      (0, 0.65) -- (12, 0.65);
+
+    % --- pôle gauche --------------------------------------------------
+    \fill[accent] (2.3, 0.65) circle (2.6pt);
+    \node[ink, font=\bfseries, anchor=south] at (2.3, 0.88)
+      {IA symbolique};
+    \node[ink, font=\footnotesize, anchor=north, text width=4.6cm, align=center]
+      at (2.3, 0.32) {\textbf{+} transparente, vérifiable,\\ très économe en données};
+    \node[ash, font=\footnotesize, anchor=north, text width=4.6cm, align=center]
+      at (2.3, -0.75) {\textbf{--} rigide, fragile au bruit,\\ ne passe pas à l'échelle};
+
+    % --- pôle droit ---------------------------------------------------
+    \fill[accent] (9.7, 0.65) circle (2.6pt);
+    \node[ink, font=\bfseries, anchor=south] at (9.7, 0.88)
+      {Apprentissage profond};
+    \node[ink, font=\footnotesize, anchor=north, text width=4.6cm, align=center]
+      at (9.7, 0.32) {\textbf{+} passe à l'échelle,\\ apprend depuis le signal brut};
+    \node[ash, font=\footnotesize, anchor=north, text width=4.6cm, align=center]
+      at (9.7, -0.75) {\textbf{--} opaque, invérifiable,\\ très gourmand en données};
+
+  \end{tikzpicture}
+  \end{center}
+
+  \vspace{0.3em}
+  \begin{center}
+    \small Les deux limites sont \alert{symétriques} : chacun paie sa force
+    par l'exacte faiblesse de l'autre.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 1 : IA symbolique et apprentissage profond}} \hfill \textit{$\approx$ 1 min 15}
+
+Avant d'examiner les capacités d'une intelligence artificielle, une question
+plus fondamentale se pose : \textit{sur quoi repose sa connaissance du monde,
+et comment celle-ci est-elle construite ?}
+
+Et à cette question, deux grandes approches existent.
+
+Soit on lui transmet explicitement des connaissances : autrement on écrit les
+règles, on encode la logique. C'est l'IA symbolique.
+
+Soit on lui fournit des données et on la laisse apprendre des régularités à
+partir de celles-ci : c'est l'apprentissage profond.
+
+Mais chacune de ces approches a ses limites.
+
+Le symbolique est transparent : on peut suivre les règles qui conduisent à une
+conclusion. En revanche, il reste rigide : dès qu'une situation s'écarte de ce
+qui a été prévu, ses règles peuvent devenir insuffisantes.
+
+Le réseau de neurones est beaucoup plus flexible : il apprend directement à
+partir des données et peut s'adapter à des situations complexes. Mais cette
+capacité a un coût : son fonctionnement est beaucoup plus difficile à
+interpréter.
+
+Autrement dit, les deux approches échouent sur des points presque opposés.
+
+Alors une question se pose : \textit{peut-on réunir leurs forces sans hériter
+de leurs faiblesses ?}
+
+C'est précisément le problème auquel nous allons nous intéresser.
+
+\smallskip
+\textcolor{ash}{\textit{Si la question est posée :} cette opposition structure le
+champ depuis les années 1980.}
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 2 — Le Bitter Lesson
+%  Idée unique : la connaissance codée à la main plafonne ; le calcul,
+%  lui, continue de croître (loi de Moore) et finit par la dépasser.
+%  Le graphe porte cette affirmation directement, sans texte.
+% ------------------------------------------------------------------
+\begin{frame}{La Bitter Lesson}
+  \begin{center}
+  \begin{tikzpicture}[x=0.92cm, y=0.72cm]
+
+    % --- axes ----------------------------------------------------
+    \draw[ash, -{Stealth[length=6pt]}, semithick]
+      (0, 0) -- (11.3, 0) node[right, font=\footnotesize, ash] {calcul disponible};
+    \draw[ash, -{Stealth[length=6pt]}, semithick]
+      (0, 0) -- (0, 6.3) node[above, font=\footnotesize, ash] {performance};
+
+    % --- courbe : connaissance codee a la main (plafonne) ---------
+    \draw[ash, thick]
+      plot [smooth] coordinates {(0.3,0.4) (1,1.6) (2,2.6) (3,3.1)
+                                  (4,3.3) (6,3.35) (8,3.3) (10.3,3.3)};
+    \node[ash, font=\footnotesize\itshape, anchor=west]
+      at (8.5, 3.55) {connaissance codée à la main};
+
+    % --- courbe : calcul, recherche et apprentissage (continue) ---
+    \draw[accent, thick]
+      plot [smooth] coordinates {(0.3,0.15) (1,0.35) (2,0.7) (3,1.2)
+                                  (4,1.9) (5,2.7) (6,3.4) (7,4.0)
+                                  (8,4.6) (9,5.1) (10.3,5.6)};
+    \node[accent, font=\footnotesize\bfseries, anchor=south west]
+      at (6.3, 5.75) {calcul : recherche et apprentissage};
+
+  \end{tikzpicture}
+  \end{center}
+
+  \vspace{0.1em}
+  \begin{center}
+    \small Ce que le calcul apprend seul finit par \alert{dépasser} ce que
+    nous codons à la main.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 2 : La Bitter Lesson}} \hfill \textit{$\approx$ 1 min 30}
+
+En 2019, le chercheur Richard Sutton publie un texte devenu une référence
+dans le domaine, intitulé la Bitter Lesson.
+
+Sa thèse tient en une phrase. Sur soixante dix ans de recherche en
+intelligence artificielle, les méthodes générales qui exploitent le calcul
+finissent toujours par surpasser celles qui exploitent la connaissance
+humaine, et l'écart est large.
+
+La raison tient à la loi de Moore. Le calcul disponible croît sans cesse,
+alors qu'une connaissance codée à la main reste fixe. À court terme,
+injecter de la connaissance humaine aide, et cela satisfait le chercheur.
+Mais à long terme, cette connaissance finit par limiter le système : elle ne
+sait pas exploiter le calcul supplémentaire qui devient disponible.
+
+L'exemple le plus connu reste les échecs. En 1997, Deep Blue bat Kasparov
+grâce à une recherche massive, et non grâce à une compréhension fine du jeu.
+Le même motif s'est ensuite répété au jeu de Go, en reconnaissance vocale,
+en vision par ordinateur. À chaque fois, une méthode générale, appuyée sur
+le calcul, finit par dépasser des années de connaissance construite à la
+main.
+
+Sutton en tire deux leçons. Il faut privilégier les méthodes qui profitent du
+calcul supplémentaire à mesure qu'il devient disponible. Et il faut cesser de
+vouloir coder directement ce que nous croyons savoir du monde, car cette
+complexité est sans fin.
+
+\smallskip
+\textcolor{ash}{\textit{Si la question est posée :} le texte complet tient en
+deux pages et circule très largement dans la communauté depuis 2019.}
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 3 — Le compromis neuro-symbolique
+%  Idée unique : LTN ne fixe pas la réponse, il fixe le vocabulaire
+%  dans lequel le gradient va la chercher. La connaissance humaine
+%  porte sur la grammaire, pas sur les valeurs. C'est la réponse
+%  directe à l'objection de Sutton, avec sa limite assumée.
+% ------------------------------------------------------------------
+\begin{frame}{Le compromis neuro-symbolique}
+  \begin{center}
+  \begin{tikzpicture}[x=1cm, y=1cm]
+
+    % --- boites : dessinees separement du texte -------------------
+    % (un noeud qui combine a la fois "draw" et "text width" force pgf
+    %  a mesurer le texte en deux passes ; en mode notes, cette shape
+    %  laisse parfois une trace de son contour sur la page suivante.
+    %  On separe donc le rectangle, simple trace, du texte, simple bloc.)
+    \draw[ash, thick, rounded corners] (0, -1.7) rectangle (5.4, 1.7);
+    \draw[accent, thick, rounded corners] (6.8, -1.7) rectangle (12.2, 1.7);
+
+    % --- contenu de la boite gauche : ce que nous fixons -----------
+    \node[align=center, text width=4.7cm] at (2.7, 0) {
+        \textcolor{ash}{\scshape\footnotesize fixé par nous}\\[5pt]
+        \textbf{le vocabulaire logique}\\[6pt]
+        \textcolor{ash}{\footnotesize prédicats, connecteurs,\\ quantificateurs}\\[5pt]
+        $P(x),\ \land,\ \lor,\ \forall,\ \exists$
+      };
+
+    % --- contenu de la boite droite : ce que le gradient trouve ----
+    \node[align=center, text width=4.7cm] at (9.5, 0) {
+        \textcolor{accent}{\scshape\footnotesize trouvé par le gradient}\\[5pt]
+        \textbf{les paramètres du réseau}\\[6pt]
+        \textcolor{ash}{\footnotesize appris par descente de gradient,\\
+        depuis les données}\\[5pt]
+        $\theta$
+      };
+
+    % --- fleche -----------------------------------------------------
+    \draw[ash, {Stealth[length=7pt]}-, thick] (6.7, 0) -- (5.5, 0)
+      node[midway, above, font=\footnotesize\itshape, ash] {contraint};
+
+  \end{tikzpicture}
+  \end{center}
+
+  \vspace{0.4em}
+  \begin{center}
+    \small Les LTN fixent la forme d'un prédicat, mais pas \alert{la
+    fonction qu'il apprend à représenter}.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 3 : Le compromis neuro-symbolique}} \hfill \textit{$\approx$ 1 min 45}
+
+Le neuro symbolique semble à première vue contredire directement cette leçon.
+Il propose d'injecter de la logique, une connaissance humaine explicite, dans
+un système d'apprentissage.
+
+En effet, ici, il faut distinguer deux niveaux.
+
+Le premier est celui de la perception : la fonction qui transforme une
+donnée brute en une estimation de ce qu'elle représente. Rien n'y est codé à
+l'avance, elle reste un réseau de neurones ordinaire, appris entièrement par
+descente de gradient. Sur ce plan, LTN suit la leçon de Sutton : une méthode
+générale qui exploite le calcul pour apprendre.
+
+Le second niveau est celui du raisonnement : la façon dont plusieurs
+perceptions s'articulent pour rendre compte d'une observation globale. Là,
+nous intervenons directement, en écrivant une formule logique, avec des
+\textbf{prédicats, des connecteurs et des quantificateurs}. Je reviendrai sur
+chacun de ces termes juste après. Cette structure n'est pas apprise, elle est
+injectée, comme un biais explicite.
+
+LTN occupe donc une position intermédiaire. Il applique le principe de
+Sutton à l'étage perceptif, mais s'en écarte à l'étage symbolique, où une
+connaissance humaine reste programmée à la main. C'est un compromis assumé :
+nous renonçons à une part de généralité en échange d'une meilleure
+efficacité statistique, surtout utile quand les données sont rares.
+
+C'est ce fonctionnement des Logic Tensor Networks que nous allons maintenant
+explorer dans la suite de cette présentation.
+
+\smallskip
+\textcolor{ash}{\textit{Si la question est posée :} cette défense a une
+limite reconnue, elle sera reprise en conclusion.}
+}
+
+% ============================================================
+\section{Fondements théoriques}
+
+% ------------------------------------------------------------------
+%  SLIDE 4 — Le vocabulaire de la logique classique
+%  Idee unique : quatre briques suffisent a ecrire une formule
+%  (domaine, constante, variable, predicat). Tient la promesse
+%  faite en slide 3 ("je reviendrai sur chacun de ces termes").
+%  Les connecteurs et quantificateurs viennent a la diapo suivante :
+%  ce sont eux qui COMBINENT ces briques, pas des briques elles-memes.
+% ------------------------------------------------------------------
+\begin{frame}{Logique du premier ordre : le vocabulaire}
+  \begin{center}
+    \small\itshape\color{ash}
+    « Socrate est un homme. » \quad « Tous les hommes sont mortels. »\\
+    \normalfont\small\normalcolor
+    un langage formel : des phrases précises, sans ambiguïté, vérifiables.
+  \end{center}
+
+  \vspace{0.7em}
+  \begin{center}
+  \small
+  \renewcommand{\arraystretch}{1.6}
+  \begin{tabular}{@{} l c >{\raggedright\arraybackslash}m{5.6cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize notion} &
+    {\color{ash}\scshape\footnotesize notation} &
+    {\color{ash}\scshape\footnotesize exemple} \\
+    \midrule
+    domaine & $\mathcal{D}$ & $\{$Léonel, Mélène, Alice, Abdel$\}$ \\
+    constante & $\text{abdel} \in \mathcal{D}$ & pointe toujours vers Abdel \\
+    variable & $x$ & un individu quelconque du domaine \\
+    prédicat & $\text{EstÉtudiant}(x)$ & vrai pour Abdel, faux pour Mélène \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.5em}
+  \begin{center}
+    \small Ces quatre briques suffisent à écrire n'importe quelle
+    \alert{formule}.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 4 : Le vocabulaire de la logique classique}} \hfill \textit{$\approx$ 1 min}
+
+Avant de voir comment Logic Tensor Networks fonctionne, reprenons ce qu'est
+la logique du premier ordre elle même.
+
+C'est un langage formel : un ensemble de règles d'écriture strictes, qui
+permet de décrire le monde par des phrases précises, sans ambiguïté et
+vérifiables. « Socrate est un homme » ou « tous les hommes sont mortels »
+sont des phrases de ce type.
+
+Ce langage repose sur quatre briques. Le domaine est l'ensemble des objets
+dont on parle. Si je construis un système pour parler d'un petit groupe de
+personnes, mon domaine pourrait être Léonel, Mélène, Alice et Abdel.
+
+Une constante désigne toujours le même objet du domaine : le symbole abdel
+pointe vers Abdel, et rien d'autre.
+
+Une variable, notée x, désigne un objet quelconque du domaine, non encore
+fixé.
+
+Un prédicat exprime une propriété, vraie ou fausse selon l'objet auquel on
+l'applique. Par exemple, EstÉtudiant appliqué à Abdel est vrai, alors
+qu'appliqué à Mélène il est faux.
+
+Ces quatre notions suffisent à écrire n'importe quelle formule. Mais un
+prédicat peut prendre plus d'un argument, et il existe aussi les fonctions.
+C'est l'objet de la diapositive suivante.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 5 — Predicats (arite) et fonctions
+%  Idee unique : un predicat peut prendre plusieurs arguments (arite),
+%  et une fonction se distingue d'un predicat par ce qu'elle renvoie
+%  (un objet du domaine, pas une verite). Reprend fidelement les
+%  sections 5, 6 et 7 de la cellule "Prerequis : logique du premier
+%  ordre" (unaire avant binaire, arite, D^n, puis fonctions).
+% ------------------------------------------------------------------
+\begin{frame}{Prédicats et fonctions}
+  \begin{center}
+    \small\itshape\color{ash}
+    l'arité d'un prédicat est son nombre d'arguments : $n$ arguments
+    $\Rightarrow$ prédicat $n$-aire, défini sur $\mathcal{D}^n$.
+  \end{center}
+
+  \vspace{0.6em}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.7}
+  \begin{tabular}{@{} l c >{\raggedright\arraybackslash}m{3.0cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize notion} &
+    {\color{ash}\scshape\footnotesize notation} &
+    {\color{ash}\scshape\footnotesize exemple} \\
+    \midrule
+    prédicat unaire (1-aire) & $\text{EstÉtudiant}(x)$ &
+      vrai pour Abdel, faux pour Mélène \\
+    prédicat binaire (2-aire) & $\text{EstAmoureuxDe}(x,y)$ &
+      vrai pour (Alice, Abdel) \\
+    fonction & $\text{PèreDe}(x)$ &
+      $\text{PèreDe}(\text{Alice}) = \text{Léonel}$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.6em}
+  \begin{center}
+    \small Un prédicat renvoie une \alert{vérité} ; une fonction renvoie un
+    objet du domaine.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 5 : Prédicats et fonctions}} \hfill \textit{$\approx$ 2 min}
+
+Reprenons les prédicats, avec toute leur richesse.
+
+Un prédicat est une propriété ou une relation qu'on peut attribuer à un ou
+plusieurs objets, et qui est vraie ou fausse.
+
+Prenons d'abord un prédicat à un seul argument, dit unaire, ou un-aire.
+EstÉtudiant de x prend un seul objet en entrée et dit si cet objet a la
+propriété d'être étudiant. EstÉtudiant appliqué à Abdel vaut vrai ; appliqué
+à Mélène, il vaut faux.
+
+Un prédicat peut aussi prendre plusieurs arguments. EstAmoureuxDe de x et y,
+un prédicat binaire, ou deux-aire, exprime une relation entre deux objets.
+EstAmoureuxDe appliqué à Alice et Abdel vaut vrai. Rien ne garantit que la
+relation soit symétrique : EstAmoureuxDe appliqué à Abdel et Alice pourrait
+très bien avoir une valeur différente.
+
+Le nombre d'arguments d'un prédicat s'appelle son arité. Un prédicat à $n$
+arguments est dit $n$-aire, et il est défini sur $\mathcal{D}^n$,
+c'est-à-dire l'ensemble de tous les $n$-uplets d'objets du domaine.
+
+Les fonctions, elles, sont différentes. Contrairement à un prédicat, une
+fonction ne renvoie pas une valeur de vérité, mais un autre objet du
+domaine. PèreDe de x, appliquée à une personne, renvoie une autre personne,
+son père. Avec notre domaine, PèreDe appliqué à Alice vaut Léonel : la
+sortie reste dans le domaine.
+
+Nous avons maintenant tout le vocabulaire nécessaire : domaine, constantes,
+variables, prédicats de toute arité, et fonctions. Voyons à présent comment
+les combiner.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 6 — Connecteurs et quantificateurs
+%  Idee unique : ces particules combinent les briques de la slide 4
+%  en formules completes. Le paiement de la diapo est la formule
+%  finale elle-meme (meme domaine : Leonel, Melene, Alice, Abdel).
+% ------------------------------------------------------------------
+\begin{frame}{Connecteurs et quantificateurs}
+  \begin{center}
+  \small
+  \renewcommand{\arraystretch}{1.5}
+  % Une seule tabulation (pas de columns/minipage cote a cote : ce
+  % type de construction a montre une fuite de bordure sur la page
+  % de notes adjacente sur des diapos precedentes).
+  \begin{tabular}{@{} c l @{\hspace{1.4cm}} c l @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize symbole} &
+    {\color{ash}\scshape\footnotesize connecteur} &
+    {\color{ash}\scshape\footnotesize symbole} &
+    {\color{ash}\scshape\footnotesize quantificateur} \\
+    \midrule
+    $\lnot$ & négation (non) & $\forall x\,\phi(x)$ & pour tout $x$ \\
+    $\land$ & conjonction (et) & $\exists x\,\phi(x)$ & il existe un $x$ \\
+    $\lor$ & disjonction (ou) & & \\
+    $\implies$ & implication (si\ldots alors) & & \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{1.1em}
+  \begin{center}
+    \small Ensemble, ils permettent d'écrire une \alert{formule} complète :
+  \end{center}
+  \[
+    \forall x\,\bigl(\text{EstÉtudiant}(x) \implies \exists y\,
+    \text{EstAmiDe}(x,y)\bigr)
+  \]
+  \begin{center}
+    \small\itshape\color{ash} « tout étudiant a au moins un ami »
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 6 : Connecteurs et quantificateurs}} \hfill \textit{$\approx$ 1 min 15}
+
+Les connecteurs permettent de combiner plusieurs propositions en une seule.
+La négation ($\lnot$) inverse une valeur de vérité. La conjonction ($\land$)
+n'est vraie que si les deux propositions le sont ensemble. La disjonction
+($\lor$) est vraie dès que l'une des deux l'est. L'implication ($\implies$)
+exprime que si la première proposition est vraie, la seconde l'est
+nécessairement.
+
+Les quantificateurs, quant à eux, permettent de parler de plusieurs objets
+sans les nommer un par un. Pour tout x, phi de x ($\forall x\,\phi(x)$),
+affirme que la propriété vaut pour tout le domaine. Il existe un x, phi de x
+($\exists x\,\phi(x)$), affirme qu'elle vaut pour au moins un objet.
+
+Une fois tout cela en main, on peut écrire une formule complète. Pour tout
+x, si x est étudiant, alors il existe un y tel que x est ami avec y
+($\forall x\,(\text{EstÉtudiant}(x) \implies \exists y\,
+\text{EstAmiDe}(x,y))$). Autrement dit, tout étudiant a au moins un ami.
+
+Cette formule reste, pour l'instant, entièrement discrète : vraie ou fausse,
+sans nuance possible. C'est précisément ce que nous allons chercher à
+dépasser dans la suite.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 7 — L'interpretation classique I
+%  Idee unique : I est un choix arbitraire parmi d'autres. La meme
+%  formule, sous une autre interpretation, dit autre chose. Ce
+%  constat motive directement le terme suivant : le grounding.
+% ------------------------------------------------------------------
+\begin{frame}{L'interprétation : le pont entre syntaxe et sens}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.7}
+  \begin{tabular}{@{} l c >{\raggedright\arraybackslash}m{3.0cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize symbole} &
+    {\color{ash}\scshape\footnotesize interprétation $\mathcal{I}$} &
+    {\color{ash}\scshape\footnotesize exemple} \\
+    \midrule
+    constante $c$ & $\mathcal{I}(c) \in \mathcal{D}$ &
+      $\mathcal{I}(\text{abdel}) = \text{Abdel}$ \\
+    prédicat $P$ ($n$-aire) & $\mathcal{I}(P) \subseteq \mathcal{D}^n$ &
+      $\mathcal{I}(\text{EstÉtudiant})$: Alice, Abdel \\
+    fonction $f$ & $\mathcal{I}(f) : \mathcal{D}^n \to \mathcal{D}$ &
+      $\mathcal{I}(\text{PèreDe})(\text{Alice}) = \text{Léonel}$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.7em}
+  \begin{center}
+    \small Rien n'oblige à choisir \alert{cette} interprétation plutôt
+    qu'une autre.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 7 : L'interprétation}} \hfill \textit{$\approx$ 1 min 30}
+
+L'interprétation $\mathcal{I}$ fait le pont entre la syntaxe et la
+sémantique. Elle assigne à chaque symbole brut du langage un objet concret,
+dans un domaine choisi au préalable.
+
+Ce n'est pas une règle unique, mais un ensemble de trois assignations. À
+chaque constante, elle associe un élément précis du domaine. À chaque
+prédicat $n$-aire, elle associe un sous-ensemble de $\mathcal{D}^n$ :
+exactement les combinaisons pour lesquelles il est vrai. À chaque fonction,
+elle associe une véritable fonction mathématique sur le domaine.
+
+Prenons EstÉtudiant. Si $\mathcal{I}(\text{EstÉtudiant})$ vaut Alice et
+Abdel, alors évaluer EstÉtudiant appliqué à Abdel revient à demander si
+Abdel appartient à cet ensemble. C'est le cas, donc la formule est vraie.
+
+Mais voici le point crucial. Rien n'oblige à choisir cette interprétation
+plutôt qu'une autre. Reprenons exactement les mêmes symboles, abdel et
+EstÉtudiant, mais changeons complètement d'interprétation. Choisissons cette
+fois un domaine de nombres, et décidons que abdel désigne le nombre 5, et
+qu'EstÉtudiant désigne la propriété d'être pair. La même formule
+syntaxique, EstÉtudiant appliqué à abdel, devient alors une affirmation
+totalement différente : est-ce que 5 est pair ? Ce qui est évidemment faux.
+Ainsi, la syntaxe n'a pas changé d'un seul symbole, mais son sens s'est
+complètement inversé.
+
+C'est précisément ce point qui va nous conduire au terme suivant : le
+grounding.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 8 — Real Logic : le grounding G
+%  Idee unique : G n'est pas une interpretation quelconque, elle est
+%  contrainte a cibler l'espace des tenseurs. Deux cibles seulement :
+%  terme -> tenseur, formule -> reel dans [0,1]. C'est ce remplacement
+%  qui rend la logique differentiable (cf. slide 3, meme mecanisme).
+% ------------------------------------------------------------------
+\begin{frame}{Real Logic : le grounding $\mathcal{G}$}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.8}
+  \begin{tabular}{@{} l >{\centering\arraybackslash}m{2.8cm}
+                       >{\centering\arraybackslash}m{2.8cm} @{}}
+    \toprule
+    & {\color{ash}\scshape\footnotesize interprétation $\mathcal{I}$} &
+      {\color{accent}\scshape\footnotesize grounding $\mathcal{G}$} \\
+    \midrule
+    terme & un objet abstrait de $\mathcal{D}$ & un tenseur de réels \\
+    formule & vrai ou faux ($\{0,1\}$) & un réel dans $[0,1]$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.7em}
+  \begin{center}
+    \small $\mathcal{G}$ n'est pas une interprétation quelconque : elle est
+    \alert{contrainte} à l'espace des tenseurs.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 8 : Real Logic}} \hfill \textit{$\approx$ 1 min 45}
+
+Nous avons vu que rien ne contraint une interprétation classique. Real
+Logic, la sémantique utilisée par Logic Tensor Networks, résout ce problème
+d'une manière particulière. Elle ne choisit pas une interprétation parmi
+d'autres : elle en contraint la forme.
+
+Le domaine n'est plus un ensemble abstrait. Il est interprété concrètement
+par des tenseurs réels. C'est pour cette raison qu'on parle de grounding,
+noté $\mathcal{G}$, plutôt que d'interprétation : ce nouveau terme marque
+que $\mathcal{G}$ n'est pas une interprétation quelconque, mais une
+interprétation contrainte à toujours cibler l'espace des tenseurs.
+
+Concrètement, $\mathcal{G}$ agit sur deux catégories de symboles. À tout
+terme, une constante, une variable, le résultat d'une fonction, $\mathcal{G}$
+associe un tenseur de réels. À toute formule, $\mathcal{G}$ associe un réel
+dans l'intervalle $[0,1]$ : un degré de vérité continu, et non plus un
+booléen strict.
+
+Reprenons EstÉtudiant appliqué à abdel. Sous $\mathcal{I}$, la réponse était
+vraie ou fausse. Sous $\mathcal{G}$, la même expression devient un nombre,
+disons $0{,}92$ : proche de la vérité, sans y être totalement.
+
+C'est ce remplacement, des objets abstraits par des tenseurs, du booléen par
+le continu, qui rend une connaissance logique exploitable comme contrainte
+différentiable, entraînable par descente de gradient.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 9 — Grounding concret : constantes, predicats, fonctions,
+%  variables
+%  Idee unique : G n'est pas qu'une definition abstraite, elle se
+%  code tres concretement. Un predicat = reseau + sigmoide ; une
+%  fonction = reseau sans sigmoide ; c'est le seul signal qui les
+%  distingue. Une constante peut etre fixe ou apprenable (rappelle
+%  la slide 3). Une variable est un batch, pas un individu.
+% ------------------------------------------------------------------
+\begin{frame}{Grounder les symboles non logiques}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.55}
+  \begin{tabular}{@{} l >{\raggedright\arraybackslash}m{6.4cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize symbole} &
+    {\color{ash}\scshape\footnotesize grounding} \\
+    \midrule
+    constante & tenseur fixé (donnée) ou \alert{apprenable} (embedding,
+      appris par gradient) \\
+    prédicat & fonction (souvent un réseau) se terminant par une
+      \textbf{sigmoïde} : sortie dans $[0,1]$ \\
+    fonction & fonction (souvent un réseau) \textbf{sans} sigmoïde :
+      sortie un tenseur quelconque \\
+    variable & un \textbf{batch}, ou séquence, d'individus \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.3em}
+  \begin{center}
+    \small La \alert{sigmoïde} est le seul signal qui distingue un
+    prédicat d'une fonction.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 9 : Grounder les symboles non logiques}} \hfill \textit{$\approx$ 1 min 15}
+
+Passons maintenant du principe général à sa mise en œuvre concrète.
+
+Une constante est groundée sur un tenseur réel : fixé à partir d'une
+donnée, ou entraînable comme un embedding, ajusté par descente de gradient.
+Nous retrouvons ici, très concrètement, la distinction posée dès la slide
+sur le compromis neuro-symbolique.
+
+Un prédicat associe à son entrée un réel dans $[0,1]$ : une fonction
+mathématique quelconque, souvent un réseau de neurones, dont la dernière
+couche se termine par une sigmoïde. Une fonction, elle, n'a aucune
+contrainte de sortie : jamais de sigmoïde. C'est ce seul détail qui
+distingue les deux, dans n'importe quel notebook LTN.
+
+Une variable, enfin, représente un batch, ou séquence, d'individus. C'est
+cette notion qui permettra d'écrire des quantifications comme pour tout
+$x$, puisque cela suppose que $x$ parcoure plusieurs individus.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 10 — Connecteurs flous : le choix du produit
+%  Idee unique : les connecteurs deviennent des fonctions lisses sur
+%  [0,1], et le choix precis de la famille (produit plutot que
+%  Godel min/max) n'est pas arbitraire : il conditionne si le
+%  gradient circule sur les deux arguments ou un seul.
+% ------------------------------------------------------------------
+\begin{frame}{La configuration Product Real Logic}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.7}
+  \begin{tabular}{@{} >{\centering\arraybackslash}p{2.0cm}
+                       >{\centering\arraybackslash}p{2.2cm}
+                       >{\raggedright\arraybackslash}p{3.4cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize connecteur} &
+    {\color{ash}\scshape\footnotesize opérateur} &
+    {\color{ash}\scshape\footnotesize nom} \\
+    \midrule
+    $\lnot u$ & $1-u$ & négation standard \\
+    $u \land v$ & $uv$ & t-norme produit \\
+    $u \lor v$ & $u+v-uv$ & t-conorme produit \\
+    $u \implies v$ & $1-u+uv$ & implication de Reichenbach \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.7em}
+  \begin{center}
+    \small Le produit répartit le \alert{gradient} sur les deux arguments ;
+    le min/max de Gödel, non.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 10 : La configuration Product Real Logic}} \hfill \textit{$\approx$ 1 min 30}
+
+Les connecteurs logiques classiques ne sont définis que pour des valeurs
+strictement zéro ou un. Logic Tensor Networks les remplace donc par des
+opérateurs de logique floue, définis sur tout l'intervalle continu $[0,1]$.
+
+Plusieurs familles d'opérateurs flous existent, mais elles ne sont pas
+équivalentes du point de vue de l'entraînement. Le minimum et le maximum de
+Gödel ($u \land v = \min(u,v)$, $u \lor v = \max(u,v)$), par exemple, ne
+font circuler le gradient que sur un seul argument à la fois, ce qui peut
+ralentir ou bloquer l'apprentissage.
+
+C'est pourquoi Logic Tensor Networks recommande en général la
+configuration Product Real Logic. Pour la négation, la négation standard :
+$1-u$. Pour la conjonction, la t-norme produit : $u \land v = uv$. Pour la
+disjonction, la t-conorme produit : $u \lor v = u+v-uv$. Et pour
+l'implication, l'implication de Reichenbach : $u \implies v = 1-u+uv$.
+
+Ce choix n'est pas arbitraire. Contrairement au minimum et au maximum, le
+produit a un gradient qui se répartit sur les deux arguments à la fois, ce
+qui en fait un choix numériquement plus stable pour l'entraînement.
+
+Chaque connecteur devient ainsi une fonction lisse sur $[0,1]$, dérivable
+presque partout. C'est cette propriété qui permet à la descente de gradient
+de fonctionner à travers toute la formule.
+
+\smallskip
+\textcolor{ash}{\textit{Si la question est posée :} il existe d'autres
+familles, Gödel ou Łukasiewicz, mais elles posent des problèmes de gradient
+détaillés dans un notebook complémentaire.}
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 11 — Quantificateurs : la moyenne generalisee
+%  Idee unique : pMean et pMeanError sont des versions lissees du
+%  max et du min, pilotees par p. p grand = fidelite logique stricte,
+%  p proche de 1 = tolerance au bruit, meilleur gradient.
+% ------------------------------------------------------------------
+\begin{frame}{Quantificateurs : la moyenne généralisée}
+  \[
+    \exists x\,\phi(x) \;\approx\; \mathrm{pMean} =
+    \Big(\tfrac{1}{n}\textstyle\sum_{i=1}^n u_i^p\Big)^{1/p}
+  \]
+  \vspace{-0.3em}
+  \[
+    \forall x\,\phi(x) \;\approx\; \mathrm{pMeanError} =
+    1-\Big(\tfrac{1}{n}\textstyle\sum_{i=1}^n (1-u_i)^p\Big)^{1/p}
+  \]
+
+  \vspace{0.3em}
+  \begin{itemize}
+    \small
+    \item quand $p \to 1$ : les deux tendent vers une moyenne simple,
+      tolérante aux cas difficiles du batch ;
+    \item quand $p \to \infty$ : $\mathrm{pMean}$ tend vers le
+      \alert{maximum}, $\mathrm{pMeanError}$ vers le \alert{minimum}\\
+      strict, exigeant.
+  \end{itemize}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 11 : Quantificateurs}} \hfill \textit{$\approx$ 1 min 30}
+
+Le quantificateur universel et le quantificateur existentiel ne peuvent pas
+non plus être utilisés dans leur forme classique. Ils supposent de vérifier
+une propriété sur un domaine entier, alors qu'en Logic Tensor Networks, une
+variable ne représente qu'un batch fini d'individus, avec des degrés de
+vérité continus.
+
+LTN les remplace donc par des opérateurs d'agrégation, qui condensent les
+degrés de vérité d'un batch en une seule valeur. Pour l'existentiel, la
+moyenne généralisée des degrés de vérité, notée pMean. Pour l'universel, la
+moyenne généralisée
+des écarts à la vérité, notée pMeanError.
+
+Le paramètre p règle un compromis. Quand p tend vers l'infini,
+pMeanError se rapproche du vrai minimum, et le quantificateur universel
+retrouve son sens logique strict : un seul individu défaillant suffit à
+faire chuter tout le résultat. Symétriquement, pMean se rapproche du vrai
+maximum, et l'existentiel redevient facile à satisfaire.
+
+Quand p se rapproche de 1, les deux opérateurs se rapprochent au contraire
+d'une simple moyenne. Un individu défaillant peut être compensé par
+plusieurs bons individus. C'est un écart volontaire par rapport à la
+sémantique stricte, utile pour absorber le bruit dans les données, ou pour
+obtenir un gradient mieux réparti à l'entraînement.
+
+\smallskip
+\textcolor{ash}{\textit{Si la question est posée :} la démonstration
+rigoureuse de cette convergence se trouve dans le notebook
+\texttt{2-grounding\_connectives.ipynb}.}
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 12 — Quantification diagonale
+%  Idee unique : par defaut, deux variables sont croisees (toutes les
+%  combinaisons). ltn.diag force une correspondance un a un, comme un
+%  zip. Indispensable des qu'on a des paires (donnee, label).
+% ------------------------------------------------------------------
+\begin{frame}{Quantification diagonale}
+  \begin{center}
+    \small Par défaut, un prédicat sur deux variables est évalué sur
+    \alert{toutes les combinaisons}.
+  \end{center}
+
+  \vspace{0.1em}
+  \begin{center}
+  \begin{tikzpicture}[x=1.05cm, y=1.05cm]
+
+    % --- en-tetes de colonnes (labels l) et de lignes (points x) -------
+    \node[ash, font=\small] at (0, 2.75) {$l_0$};
+    \node[ash, font=\small] at (1, 2.75) {$l_1$};
+    \node[ash, font=\small] at (2, 2.75) {$l_2$};
+    \node[ash, font=\small, anchor=east] at (-0.35, 2) {$x_0$};
+    \node[ash, font=\small, anchor=east] at (-0.35, 1) {$x_1$};
+    \node[ash, font=\small, anchor=east] at (-0.35, 0) {$x_2$};
+
+    % --- ligne x_0 (y=2) : diagonale en (l_0), croix ailleurs ----------
+    \fill[accent!12] (-0.45,1.55) rectangle (0.45,2.45);
+    \draw[accent, thick] (-0.45,1.55) rectangle (0.45,2.45);
+    \node[accent, font=\footnotesize] at (0,2) {$(x_0,l_0)$};
+    \draw[ash!45, thin] (0.55,1.55) rectangle (1.45,2.45);
+    \node[ash!70] at (1,2) {$\times$};
+    \draw[ash!45, thin] (1.55,1.55) rectangle (2.45,2.45);
+    \node[ash!70] at (2,2) {$\times$};
+
+    % --- ligne x_1 (y=1) : diagonale en (l_1), croix ailleurs ----------
+    \draw[ash!45, thin] (-0.45,0.55) rectangle (0.45,1.45);
+    \node[ash!70] at (0,1) {$\times$};
+    \fill[accent!12] (0.55,0.55) rectangle (1.45,1.45);
+    \draw[accent, thick] (0.55,0.55) rectangle (1.45,1.45);
+    \node[accent, font=\footnotesize] at (1,1) {$(x_1,l_1)$};
+    \draw[ash!45, thin] (1.55,0.55) rectangle (2.45,1.45);
+    \node[ash!70] at (2,1) {$\times$};
+
+    % --- ligne x_2 (y=0) : diagonale en (l_2), croix ailleurs ----------
+    \draw[ash!45, thin] (-0.45,-0.45) rectangle (0.45,0.45);
+    \node[ash!70] at (0,0) {$\times$};
+    \draw[ash!45, thin] (0.55,-0.45) rectangle (1.45,0.45);
+    \node[ash!70] at (1,0) {$\times$};
+    \fill[accent!12] (1.55,-0.45) rectangle (2.45,0.45);
+    \draw[accent, thick] (1.55,-0.45) rectangle (2.45,0.45);
+    \node[accent, font=\footnotesize] at (2,0) {$(x_2,l_2)$};
+
+  \end{tikzpicture}
+  \end{center}
+
+  \vspace{0.3em}
+  \begin{center}
+    \small Mais avec la \alert{quantification diagonale}, seules les
+    paires en correspondance un à un sont conservées : les $\times$
+    n'ont aucun sens pour un dataset supervisé.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 12 : Quantification diagonale}} \hfill \textit{$\approx$ 1 min 30}
+
+Jusqu'ici, évaluer un prédicat sur deux variables produit systématiquement
+toutes les combinaisons possibles entre leurs individus. Ce comportement
+par défaut n'est pourtant pas toujours celui qu'on souhaite.
+
+Imaginons un dataset supervisé, où chaque donnée $x_i$ est associée à son
+propre label $l_i$. On veut évaluer un prédicat de confiance uniquement sur
+les paires qui appartiennent réellement au même exemple, $(x_0,l_0)$,
+$(x_1,l_1)$, et ainsi de suite, jamais sur des combinaisons croisées comme
+$(x_0,l_3)$, qui n'auraient aucun sens.
+
+C'est exactement ce que permet la quantification diagonale : au lieu de
+croiser toutes les combinaisons, elle ne conserve que les paires en
+correspondance un à un, individu par individu, plutôt que toutes les
+combinaisons possibles entre les deux variables. Cette correspondance
+impose une condition évidente : les deux variables doivent avoir le même
+nombre d'individus.
+
+En pratique, on applique la quantification diagonale juste avant un
+quantificateur. Une fois l'agrégation effectuée, le comportement normal de
+croisement est restauré. Ainsi, pour tout $x, l$, $C(x,l)$ n'agrège que sur
+les paires correspondantes, et cherche à répondre à la même question qu'en
+classification supervisée : à quel degré le modèle attribue-t-il, en
+moyenne, une bonne confiance à chaque exemple du dataset associé à son
+véritable label ?
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 13 — Quantificateurs gardes
+%  Idee unique : on peut restreindre un quantificateur a un
+%  sous-ensemble d'individus via un masque booleen m(x), pas un
+%  predicat flou. Exemple : un seuil de distance.
+% ------------------------------------------------------------------
+\begin{frame}{Quantificateurs gardés}
+  \begin{center}
+    \small Ils permettent de quantifier seulement sur les individus qui
+    satisfont une condition \alert{booléenne} $m$, stricte.
+  \end{center}
+
+  \vspace{0.5em}
+  \[
+    (\forall x : m(x))\ \phi(x)
+  \]
+  \vspace{-0.4em}
+  \[
+    (\exists x : m(x))\ \phi(x)
+  \]
+
+  \vspace{0.3em}
+  \begin{center}
+    \small exemple : il existe une distance $d$ en dessous de laquelle
+    toutes les paires sont similaires
+  \end{center}
+  \[
+    \exists d\ \big(\forall x,y : \mathrm{dist}(x,y) < d\big)\ \mathrm{Eq}(x,y)
+  \]
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 13 : Quantificateurs gardés}} \hfill \textit{$\approx$ 1 min 15}
+
+On souhaite parfois quantifier non pas sur l'ensemble des individus d'une
+variable, mais uniquement sur ceux qui satisfont une condition
+supplémentaire. Cette condition n'est pas un degré de vérité continu comme
+les prédicats LTN habituels : c'est un véritable masque booléen, strictement
+zéro ou un, qui sert uniquement à sélectionner qui participe à
+l'agrégation.
+
+On note $(\forall x : m(x))\,\phi(x)$ pour dire que tout $x$ satisfaisant
+$m(x)$ satisfait aussi $\phi(x)$, et de même pour l'existentiel. Le masque
+peut lui-même dépendre d'autres variables de la formule.
+
+L'exemple à l'écran affirme qu'il existe une distance $d$ en dessous de
+laquelle toutes les paires de points doivent être considérées comme
+similaires. En pratique, cela se code avec deux arguments supplémentaires
+du quantificateur : la liste des variables dont dépend la condition, et la
+fonction qui calcule le masque à partir de ces variables. LTN calcule
+$\mathrm{Eq}(x,y)$ normalement, calcule en parallèle ce masque, puis
+n'agrège que les valeurs pour lesquelles le masque est vrai.
+
+Cette possibilité est particulièrement utile pour concentrer le gradient
+sur la partie du domaine qui vérifie effectivement la condition, plutôt que
+de le diluer sur des combinaisons qui n'ont pas de sens pour la règle
+logique concernée.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 14 — L'apprentissage : satisfaire une base de connaissances
+%  Idee unique : satisfaire K devient un probleme d'optimisation
+%  continue (argmax SatAgg), sous UNE condition : chaque formule doit
+%  etre close. Reutilise EstAmiDe(x,y), deja vu en slide 5.
+% ------------------------------------------------------------------
+\begin{frame}{Satisfaire une base de connaissances}
+  \begin{center}
+    \small Une base de connaissances $\mathcal{K}$ : un ensemble de
+    formules qu'on veut voir vérifiées simultanément.
+  \end{center}
+
+  \vspace{0.3em}
+  \[
+    \mathrm{SatAgg}_{\phi \in \mathcal{K}}\, \mathcal{G}_{\theta, x \leftarrow D}(\phi)
+  \]
+
+  \vspace{0.3em}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.4}
+  \begin{tabular}{@{} >{\raggedright\arraybackslash}p{4.8cm}
+                       >{\centering\arraybackslash}p{2.2cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize formule} &
+    {\color{ash}\scshape\footnotesize close ?} \\
+    \midrule
+    $\text{EstAmiDe}(x,y)$ & non ($x,y$ libres) \\
+    $\forall x\,\text{EstAmiDe}(x,y)$ & non ($y$ libre) \\
+    $\forall x\,\forall y\,\text{EstAmiDe}(x,y)$ & oui \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.2em}
+  \begin{center}
+    \small $\mathrm{SatAgg}$ n'agrège que des formules
+    \alert{closes} : un scalaire par formule.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 14 : L'apprentissage}} \hfill \textit{$\approx$ 2 min}
+
+Jusqu'ici, nous avons vu comment construire et évaluer des objets LTN, mais
+jamais comment faire en sorte qu'un prédicat s'améliore. C'est l'objet de
+cette dernière partie : apprendre certains symboles, prédicats, fonctions,
+constantes, en utilisant la satisfaction d'une base de connaissances comme
+objectif d'entraînement.
+
+Une base de connaissances est un ensemble de formules qu'on souhaite voir
+vérifiées simultanément. La satisfaire ne signifie pas rendre chaque
+formule strictement vraie, comme en logique classique, mais trouver les
+paramètres qui rendent son degré de vérité le plus proche possible de 1.
+C'est un problème d'optimisation continue, exactement comme minimiser une
+perte en apprentissage automatique classique.
+
+Notons $D$ l'ensemble complet des exemples du dataset. L'objectif s'écrit
+$\mathrm{SatAgg}_{\phi \in \mathcal{K}}\ \mathcal{G}_{\theta, x \leftarrow
+D}(\phi)$ : pour chaque formule $\phi$ de $\mathcal{K}$, on évalue sa
+satisfaction sur les exemples $x$ de $D$ avec le modèle paramétré par
+$\theta$, puis on agrège l'ensemble de ces valeurs avec $\mathrm{SatAgg}$.
+Entraîner le modèle revient à choisir $\theta$ qui rend cette valeur
+agrégée la plus grande possible.
+
+Mais $\mathrm{SatAgg}$ impose une condition : chaque formule doit être
+close, sans aucune variable libre, toutes capturées par un quantificateur.
+Reprenons $\text{EstAmiDe}(x,y)$, déjà rencontré plus tôt : deux variables
+libres, pas close. $\forall x\,\text{EstAmiDe}(x,y)$ : $y$ reste libre,
+toujours pas close. $\forall x\,\forall y\,\text{EstAmiDe}(x,y)$ : les deux
+sont capturées, elle est close, et son évaluation donne un unique scalaire.
+
+C'est ce mécanisme d'agrégation, $\mathrm{SatAgg}$, que nous allons
+maintenant détailler.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 15 — SatAgg concretement : la perte, ce qui change / reste fixe
+%  Idee unique : minimiser 1-SatAgg revient a maximiser la
+%  satisfaction. Callback final au compromis neuro-symbolique
+%  (slide 3 et 9) : poids apprenables changent, structure fixe.
+% ------------------------------------------------------------------
+\begin{frame}{De la satisfaction à la perte}
+  \begin{center}
+    \small $\mathrm{SatAgg}$ utilise, par défaut, le même opérateur que
+    $\forall$ : $\mathrm{pMeanError}$.
+  \end{center}
+
+  \vspace{0.5em}
+  \[
+    \mathrm{loss} = 1 - \mathrm{SatAgg}_{\phi \in \mathcal{K}}\,
+    \mathcal{G}_{\theta,x\leftarrow D}(\phi)
+  \]
+
+  \vspace{0.5em}
+  \begin{center}
+    \small PyTorch \textbf{minimise} ; nous voulons \textbf{maximiser} la
+    satisfaction. Minimiser $1-\mathrm{SatAgg}$ revient exactement à
+    maximiser $\mathrm{SatAgg}$.
+  \end{center}
+
+  \vspace{0.6em}
+  \begin{center}
+    \small Pendant l'entraînement : les poids apprenables
+    \alert{changent} ; la structure logique des formules reste
+    \alert{fixe}.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 15 : De la satisfaction à la perte}} \hfill \textit{$\approx$ 1 min 45}
+
+$\mathrm{SatAgg}$ agrège les degrés de vérité de toutes les formules d'une
+base en une seule valeur. En pratique, on utilise le même opérateur que
+pour l'universel : $\mathrm{pMeanError}$, qui est d'ailleurs le choix par
+défaut. Le paramètre $p$ y joue exactement le même rôle que pour les
+quantificateurs.
+
+Puisqu'on cherche à maximiser la satisfaction globale, et que les
+algorithmes d'optimisation sont conçus pour minimiser une perte, on définit
+la perte comme $1 - \mathrm{SatAgg}$. Minimiser cette quantité revient
+exactement à maximiser la satisfaction.
+
+À chaque itération, on calcule d'abord les degrés de vérité des formules de
+la base, la phase forward, puis on ajuste les poids par rétropropagation
+pour réduire la perte, la phase backward. C'est exactement le mécanisme de
+descente de gradient déjà vu, appliqué cette fois à un vrai objectif
+d'entraînement.
+
+Et ce qui change pendant cet entraînement, ce sont précisément les poids
+des prédicats et fonctions apprenables, et éventuellement des constantes
+entraînables. La structure logique des formules, elle, reste toujours
+fixe. Nous retrouvons ici, une dernière fois, la distinction posée dès la
+slide sur le compromis neuro-symbolique.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 16 — Trois pieges du gradient
+%  Idee unique : un operateur flou valide pour INTERROGER une formule
+%  ne l'est pas forcement pour APPRENDRE dessus. Trois pathologies
+%  concretes, avec exemples numeriques du notebook 2b.
+% ------------------------------------------------------------------
+\begin{frame}{Trois pièges du gradient}
+  \begin{center}
+    \small Un opérateur valide pour \alert{interroger} une formule ne
+    l'est pas forcément pour \alert{apprendre} dessus.
+  \end{center}
+
+  \vspace{0.3em}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.55}
+  \begin{tabular}{@{} >{\raggedright\arraybackslash}p{4.1cm}
+                       >{\raggedright\arraybackslash}p{4.1cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize problème} &
+    {\color{ash}\scshape\footnotesize cause} \\
+    \midrule
+    le gradient qui s'annule & $\max(z,0)$ a une dérivée nulle dès que
+      $z<0$ (Łukasiewicz) \\
+    le gradient à passage unique & seul l'indice extrémal reçoit un
+      gradient non nul (le minimum) \\
+    le gradient qui explose & $z^{1/p}$ diverge près de $z=0$
+      ($\mathrm{pMeanError}$, tous les $u_i=1$) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.4em}
+  \begin{center}
+    \small Même la configuration produit recommandée n'échappe pas à
+    ces pièges, sur ses \alert{cas limites}.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 16 : Trois pièges du gradient}} \hfill \textit{$\approx$ 2 min}
+
+Un opérateur flou valide a toujours un sens quand on se contente
+d'interroger une formule déjà construite. Mais ce n'est plus vrai dès
+qu'on veut entraîner un modèle à partir de cette formule : de nombreux
+opérateurs ont des dérivées mal adaptées à la descente de gradient.
+
+Premier problème, le gradient qui s'annule. C'est le cas de la conjonction
+de Łukasiewicz, $u \land v = \max(u+v-1, 0)$. Avec $u=0{,}3$ et $v=0{,}5$,
+on a $u+v-1=-0{,}2$, donc la conjonction vaut 0, et son gradient aussi :
+la dérivée de $\max(z,0)$ est nulle pour tout $z$ strictement négatif, pas
+seulement au point où la formule s'annule. L'optimiseur ne reçoit alors
+aucun signal pour améliorer la satisfaction.
+
+Deuxième problème, le gradient à passage unique. C'est le comportement du
+minimum : sa dérivée vaut 1 pour l'indice qui réalise effectivement le
+minimum, et 0 pour tous les autres. Sur un batch de huit valeurs, un seul
+individu progresse à chaque étape, les sept autres restent inchangés,
+quelle que soit leur qualité.
+
+Troisième problème, le gradient qui explose. C'est le cas de
+$\mathrm{pMeanError}$ quand toutes les entrées valent exactement 1 : la
+somme à l'intérieur de la racine devient nulle, et la dérivée d'une
+puissance fractionnaire au voisinage de zéro diverge. Paradoxalement, le
+cas le meilleur possible, la satisfaction parfaite, devient numériquement
+instable.
+
+Et la configuration produit, que nous avons recommandée, n'est pas
+épargnée : la t-norme produit s'annule en $u=v=0$, la t-conorme en
+$u=v=1$, l'implication de Reichenbach en $u=0,v=1$, et les deux moyennes
+généralisées explosent sur leurs cas limites respectifs.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 17 — La configuration stable
+%  Idee unique : un decalage epsilon des entrees evite mecaniquement
+%  les cas limites, sans changer le resultat ailleurs. Et : ne pas
+%  fixer p trop haut pendant l'entrainement.
+% ------------------------------------------------------------------
+\begin{frame}{La configuration stable}
+  \begin{center}
+    \small L'astuce : décaler très légèrement les entrées pour
+    qu'elles n'atteignent jamais exactement $0$ ou $1$.
+  \end{center}
+
+  \vspace{0.5em}
+  \begin{center}
+    \small cas limite en $u=0$ :\quad $u' = (1-\epsilon)\,u + \epsilon$
+  \end{center}
+  \vspace{0.2em}
+  \begin{center}
+    \small cas limite en $u=1$ :\quad $u' = (1-\epsilon)\,u$
+  \end{center}
+
+  \vspace{0.4em}
+  \begin{center}
+    \small avec $\epsilon$ petit, par exemple $10^{-5}$
+  \end{center}
+
+  \vspace{0.4em}
+  \begin{center}
+    \small Autre précaution : un $p$ \alert{trop élevé} retombe dans
+    le passage unique. À éviter pendant l'entraînement.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 17 : La configuration stable}} \hfill \textit{$\approx$ 1 min 30}
+
+Ces problèmes ne surviennent que sur des cas limites bien identifiés, et
+se corrigent facilement. L'astuce : si le cas limite survient quand une
+entrée vaut 0, on remplace chaque entrée $u$ par $u' = (1-\epsilon)u +
+\epsilon$. Si le cas limite survient quand une entrée vaut 1, on remplace
+$u$ par $u' = (1-\epsilon)u$.
+
+L'idée est simple : en décalant très légèrement les entrées pour qu'elles
+n'atteignent jamais exactement 0 ou 1, on évite mécaniquement le point
+précis où la dérivée s'annule ou explose, sans changer de façon
+perceptible le résultat pour toutes les valeurs qui ne sont pas déjà sur
+ce cas limite. C'est cette version corrigée qu'on appelle stable.
+
+Une dernière précaution concerne le paramètre $p$ des moyennes
+généralisées. On pourrait être tenté de fixer un $p$ élevé pour obtenir
+des résultats logiquement stricts. Mais en contexte d'apprentissage,
+cela devient problématique : un $p$ trop élevé transforme rapidement
+l'opérateur en un opérateur à passage unique, puisque pMean tend vers le
+maximum et souffre alors du même défaut que le minimum. Il est donc
+recommandé de ne pas fixer un $p$ trop élevé lorsqu'on entraîne un
+modèle, contrairement au cas où l'on se contente d'interroger une
+formule déjà construite.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 18 — Exemple minimal : formule -> reseau
+%  Idee unique : synthese visuelle de toute la section 2. Le meme
+%  cycle vu depuis la slide 8 (grounding) jusqu'a la slide 15 (perte),
+%  boucle par le gradient qui remonte ajuster les reseaux.
+% ------------------------------------------------------------------
+\begin{frame}{De la base de connaissances au réseau}
+  \begin{center}
+  \begin{tikzpicture}[x=1cm, y=1cm]
+
+    % --- boite 1 : la base de connaissances K -------------------------
+    \draw[ash, thick, rounded corners] (-4.1,3.35) rectangle (4.1,4.85);
+    \node[align=center, text width=7.8cm] at (0,4.1) {
+      \footnotesize\textcolor{ash}{\scshape base de connaissances
+      $\mathcal{K}$}\\[2pt]
+      \footnotesize $C(a,l_a) \qquad C(b,l_b)$\\[2pt]
+      \footnotesize $\forall x_1,x_2,l\,\bigl(\mathrm{Sim}(x_1,x_2)
+      \implies (C(x_1,l) \leftrightarrow C(x_2,l))\bigr)$
+    };
+    \draw[ash, -{Stealth[length=5pt]}, thick] (0,3.35) -- (0,2.9);
+    \node[ash, font=\tiny, anchor=west] at (0.15,3.12)
+      {grounding $\mathcal{G}_\theta$};
+
+    % --- boite 2 : reseaux de neurones -------------------------------
+    \draw[ash, thick, rounded corners] (-4.1,0.95) rectangle (4.1,2.9);
+    \node[align=center, text width=7.6cm] at (0,1.925) {
+      \footnotesize\textcolor{ash}{\scshape réseaux entraînables}\\[3pt]
+      \footnotesize $C$ : un MLP de sortie softmax\\[3pt]
+      \footnotesize $\mathrm{Sim}$ : $\exp(-\|u-v\|^2)$
+    };
+    \draw[ash, -{Stealth[length=5pt]}, thick] (0,0.95) -- (0,0.5);
+    \node[ash, font=\tiny, anchor=west] at (0.15,0.72)
+      {connecteurs et quantificateurs flous};
+
+    % --- boite 3 : satisfaction --------------------------------------
+    \draw[accent, thick, rounded corners] (-4.1,-0.4) rectangle (4.1,0.5);
+    \node[align=center, text width=7.8cm] at (0,0.05) {
+      \footnotesize\textcolor{accent}{\scshape degré de satisfaction}\\[1pt]
+      \footnotesize un réel dans $[0,1]$, agrégé par $\mathrm{SatAgg}$
+    };
+    \draw[accent, -{Stealth[length=5pt]}, thick] (0,-0.4) -- (0,-0.85);
+    \node[accent, font=\tiny, anchor=west] at (0.15,-0.63)
+      {$\mathrm{loss} = 1 - \mathrm{SatAgg}$};
+
+    % --- boite 4 : perte -----------------------------------------------
+    \draw[accent, thick, rounded corners] (-4.1,-1.75) rectangle (4.1,-0.85);
+    \node[align=center, text width=7.8cm] at (0,-1.3) {
+      \footnotesize\textcolor{accent}{\scshape perte}\\[1pt]
+      \footnotesize minimisée par descente de gradient
+    };
+
+    % --- boucle du gradient : contourne largement les boites a droite --
+    \draw[ash, -{Stealth[length=5pt]}, thick]
+      (4.1,-1.3) to[out=0, in=0, looseness=1.4]
+      node[right, font=\tiny, ash, xshift=2pt] {gradient} (4.1,1.925);
+
+  \end{tikzpicture}
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 18 : De la base de connaissances au réseau}} \hfill \textit{$\approx$ 2 min}
+
+Rassemblons maintenant tout ce que nous avons vu dans un seul cycle, sur un
+cas concret.
+
+Prenons 19 points dans le carré $[0,4]\times[0,4]$, deux classes possibles,
+et seulement deux points déjà étiquetés, $a$ pour la classe $A$, $b$ pour
+la classe $B$. La base de connaissances $\mathcal{K}$ tient en trois
+formules : $a$ appartient à sa classe, $b$ à la sienne, et surtout, si deux
+points sont similaires, ils doivent recevoir le même verdict. Cette
+dernière règle fait tout le travail : elle propage l'information de
+proche en proche, comme une lumière qui passerait d'un point à ses
+voisins, bien au-delà des deux seuls points étiquetés.
+
+C'est au grounding $\mathcal{G}_\theta$ d'associer le prédicat
+d'appartenance $C$ à un MLP entraînable, dont la dernière couche utilise
+un softmax pour que les deux classes restent mutuellement exclusives ; et
+$\mathrm{Sim}$ à une mesure de proximité géométrique entre deux points.
+
+Les connecteurs et les quantificateurs, rendus flous par la configuration
+produit, combinent ces valeurs individuelles en un seul réel : le degré de
+satisfaction de la base entière.
+
+$\mathrm{SatAgg}$ agrège ce degré, et la perte se définit comme $1$ moins
+cette valeur.
+
+Et c'est là que la boucle se referme : le gradient remonte jusqu'aux poids
+de $C$, et les ajuste pour mieux satisfaire les trois formules. Après
+quelques centaines d'itérations, le modèle classe correctement les 17
+points jamais étiquetés, en s'appuyant uniquement sur $a$, $b$, et la
+contrainte de proximité.
+
+C'est ce cycle complet, base de connaissances, grounding, satisfaction,
+perte, gradient, qui constitue un Logic Tensor Network entraîné de bout en
+bout.
+
+\smallskip
+{\raggedright\textcolor{ash}{\textit{Si la question est posée :} cet
+exemple complet se trouve dans le notebook
+\texttt{3-knowledgebase-and-learning.ipynb}.}\par}
+}
+
+% ============================================================
+\section{Passons à la pratique}
+
+% ------------------------------------------------------------------
+%  SLIDE 19 — Pourquoi cet exemple
+%  Idee unique : ce cas, emprunte a DeepProbLog (provenance seulement,
+%  pas comparaison), isole la vraie difficulte (combiner, pas
+%  reconnaitre), donne une structure verifiable, et une difficulte
+%  reglable. Pas de spoiler sur le mecanisme (gradient/latence).
+% ------------------------------------------------------------------
+\begin{frame}{Pourquoi cet exemple ?}
+  \begin{center}
+    \small Prédire la somme de deux chiffres manuscrits : un cadre
+    simple pour comparer l'apprentissage neuronal et logique.
+  \end{center}
+
+  \vspace{0.6em}
+  \begin{center}
+  \footnotesize
+  \renewcommand{\arraystretch}{1.8}
+  \begin{tabular}{@{} l >{\raggedright\arraybackslash}m{5.6cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize ce qui rend le cas exigeant} &
+    {\color{ash}\scshape\footnotesize pourquoi} \\
+    \midrule
+    un cas reconnu dans la littérature & introduit dans l'article
+      DeepProbLog, un système neuro-symbolique \\
+    aucune supervision directe du classifieur & seule la somme des
+      chiffres est étiquetée, jamais les chiffres eux-mêmes \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 19 : Pourquoi cet exemple}} \hfill \textit{$\approx$ 1 min 30}
+
+Ce problème n'a pas été choisi au hasard. Il s'agit d'un cas bien connu de
+la littérature neuro-symbolique, notamment utilisé dans l'article
+DeepProbLog. Donc dans notre étude, nous comparerons un LTN à une
+baseline purement supervisée. La question qui se pose alors, c'est :
+\textbf{pourquoi ce problème est-il particulièrement adapté à cette
+comparaison ?}
+
+D'abord, ce problème permet d'isoler la difficulté qui nous intéresse.
+Reconnaître un chiffre manuscrit est déjà une tâche bien maîtrisée par les
+réseaux de neurones. Ici, l'enjeu est surtout de combiner plusieurs
+informations pour produire une réponse, ce qui nous permet de mieux
+observer l'apport de la logique.
+
+Ensuite, nous connaissons la règle du problème : la réponse est la somme
+des deux chiffres. Mais cette règle est utilisée différemment selon
+l'approche : la baseline doit l'apprendre à partir des exemples, tandis
+que le LTN peut l'exprimer explicitement sous forme de règle logique.
+
+Enfin, la difficulté peut être facilement augmentée, en réduisant les
+données ou en augmentant le nombre d'éléments à combiner. On peut ainsi
+voir comment les deux approches évoluent lorsque le problème devient plus
+difficile.
+
+C'est donc un problème simple, mais suffisamment contrôlable pour faire
+une comparaison claire entre les deux approches.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 20 — Formuler le probleme
+%  Idee unique : deux images, une seule etiquette (leur somme), le
+%  predicat Digit(x,d) et la formule existentielle qui relie les deux.
+%  Fidele au notebook 4 (cas a un seul chiffre).
+% ------------------------------------------------------------------
+\begin{frame}{Formuler le problème}
+  \begin{center}
+    \small Deux images de chiffres manuscrits $x,y$ en entrée, une seule
+    étiquette disponible $n$ : leur somme.
+  \end{center}
+
+  \vspace{0.4em}
+  \begin{center}
+  \small
+  \renewcommand{\arraystretch}{1.6}
+  \begin{tabular}{@{} l >{\raggedright\arraybackslash}m{5.9cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize notion} &
+    {\color{ash}\scshape\footnotesize rôle} \\
+    \midrule
+    $\text{Digit}(x,d)$ & vraisemblance que l'image $x$ représente le
+      chiffre $d$ \\
+    $n$ & la somme observée, seule étiquette fournie \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.5em}
+  \[
+    \exists\, d_1,d_2 : d_1+d_2=n\ \ \big(\text{Digit}(x,d_1)\land
+    \text{Digit}(y,d_2)\big)
+  \]
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 20 : Formuler le problème}} \hfill \textit{$\approx$ 1 min 30}
+
+Passons maintenant à la formulation logique du problème. On dispose de deux
+images de chiffres manuscrits, $x$ et $y$, et d'une seule étiquette : leur
+somme $n$. Les chiffres individuels que représentent $x$ et $y$ ne sont
+jamais fournis pendant l'entraînement.
+
+On introduit un prédicat $\text{Digit}(x,d)$, qui doit renvoyer la
+vraisemblance que l'image $x$ représente le chiffre $d$. C'est ce
+prédicat, sous la forme d'un réseau convolutif, que nous cherchons à
+apprendre.
+
+La formule qui relie ces éléments s'écrit : il existe deux chiffres
+$d_1,d_2$ dont la somme vaut $n$, tels que $x$ représente $d_1$ et $y$
+représente $d_2$. Le classifieur de chiffre n'est donc jamais entraîné
+directement sur sa propre tâche : sa sortie reste une information latente,
+que seule la contrainte logique sur la somme permet d'exploiter.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 21 — L'axiome complet : Diag et quantification gardee
+%  Idee unique : reutilise diag (slide 10) et guarded (slide 12) pour
+%  fermer la formule sur un batch d'exemples (x,y,n) et ne conserver
+%  que les paires (d1,d2) compatibles avec n. Figure = graphe de calcul
+%  du notebook 4 (identique a la figure 13 de l'article).
+% ------------------------------------------------------------------
+\begin{frame}{L'axiome complet}
+  \footnotesize
+  \vspace{-0.7em}
+  \[
+    \forall\,\text{Diag}(x,y,n)\ \ \Big(\exists\, d_1,d_2 : d_1+d_2=n\ \
+    \big(\text{Digit}(x,d_1)\land\text{Digit}(y,d_2)\big)\Big)
+  \]
+  \vspace{-1em}
+
+  \begin{center}
+  \scriptsize
+  \renewcommand{\arraystretch}{0.75}
+  \begin{tabular}{@{} l >{\raggedright\arraybackslash}m{6.5cm} @{}}
+    \toprule
+    {\color{ash}\scshape\footnotesize mécanisme} &
+    {\color{ash}\scshape\footnotesize rôle ici} \\
+    \midrule
+    $\text{Diag}(x,y,n)$ & associe le $i$-ème exemple de $x$, $y$ et $n$,
+      au lieu de les combiner librement \\
+    quantification gardée & ne retient, parmi les couples $(d_1,d_2)$, que
+      ceux dont la somme vaut $n$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{-1.3em}
+  \begin{center}
+    \includegraphics[width=0.8\textwidth]{images/semisupervised-single.png}\\[-0.15em]
+    {\tiny\color{ash} Graphe de calcul symbolique pour l'addition à un
+    chiffre. Source : Badreddine et al., \emph{Logic Tensor Networks},
+    Figure 13.}
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 21 : L'axiome complet}} \hfill \textit{$\approx$ 1 min 30}
+
+La formule précédente doit maintenant s'appliquer à un batch entier
+d'exemples, chacun composé de deux images et d'un résultat. On retrouve
+ici deux mécanismes déjà vus : la quantification diagonale et la
+quantification gardée.
+
+$\text{Diag}(x,y,n)$ garantit que le $i$-ème exemple de $x$, le $i$-ème de
+$y$ et le $i$-ème de $n$ se correspondent : on n'évalue pas toutes les
+combinaisons possibles entre images et résultats, seulement celles qui
+proviennent du même exemple du jeu de données.
+
+La quantification existentielle, elle, est gardée : parmi les couples
+$(d_1,d_2)$, seuls ceux dont la somme vaut $n$ sont retenus dans
+l'agrégation. C'est cette contrainte qui injecte directement l'information
+symbolique dans le système.
+
+Le schéma reprend le graphe de calcul complet, du grounding des images
+jusqu'au degré de satisfaction final : le réseau convolutif produit les
+deux distributions de probabilité, la conjonction les combine, le masque
+de la contrainte $d_1+d_2=n$ sélectionne les couples valides, puis
+l'existentiel et l'universel agrègent successivement, sur les couples puis
+sur les exemples du batch.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 22 — Entrainer : LTN contre baseline
+%  Idee unique : meme reseau convolutif, deux facons de l'entrainer.
+%  LTN maximise SatAgg (ici juste Forall, un seul axiome) ; la baseline
+%  est supervisee directement sur la somme, sans jamais voir Digit.
+%  Rappel bref du planning de p (deja vu section 2, pas de redite).
+% ------------------------------------------------------------------
+\begin{frame}{LTN contre baseline}
+  \scriptsize
+  \begin{center}
+    \footnotesize\itshape Le même réseau convolutif, mais deux façons
+    différentes d'apprendre.
+  \end{center}
+
+  \begin{center}
+    $D$ : tout le dataset, $B$ : un mini-batch tiré de $D$ \\[0.2em]
+    $\text{Satisf} = \SatAgg_{\phi\in\KB}\,\G_{\theta,x\leftarrow D}(\phi)$,
+    \quad $L = 1-\SatAgg_{\phi\in\KB}\,\G_{\theta,x\leftarrow B}(\phi)$,
+    \quad $\text{CE}$ : entropie croisée
+  \end{center}
+
+  \renewcommand{\arraystretch}{1.0}
+  \begin{center}
+  \begin{tabular}{@{} l c c @{}}
+    \toprule
+    & {\color{accent}\scshape\footnotesize LTN} &
+      {\color{ash}\scshape\footnotesize baseline} \\
+    \midrule
+    données d'entrée & \multicolumn{2}{c}{identiques} \\
+    tronc convolutif & \multicolumn{2}{c}{architecture identique} \\
+    taille du batch & \multicolumn{2}{c}{32} \\
+    optimiseur & \multicolumn{2}{c}{Adam, $lr=0{,}001$} \\
+    \midrule
+    objectif & maximiser $\text{Satisf}$ &
+      minimiser l'erreur sur $n$ \\
+    fonction de perte & $L$ & $\text{CE}$ \\
+    connaissance logique & $\exists\,d_1,d_2 : d_1+d_2=n$ & aucune \\
+    \midrule
+    epochs & 20 & 30 \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.3em}
+  \textbf{Paramètre $p$ (LTN uniquement).} Le quantificateur $\exists$ est
+  rendu progressivement plus exigeant : $p=1\rightarrow2\rightarrow4
+  \rightarrow6$, par paliers de 4 epochs. On part d'une agrégation proche
+  de la moyenne, puis on se rapproche progressivement du maximum.
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 22 : LTN contre baseline}} \hfill \textit{$\approx$ 2 min}
+
+Pour comparer équitablement les deux approches, on entraîne le même
+réseau convolutif, sur les mêmes données, avec le même optimiseur, mais
+de deux façons différentes.
+
+Notons $D$ l'ensemble complet des exemples du dataset. La baseline doit
+prédire directement la somme : c'est un problème de classification
+classique, entraîné avec une entropie croisée. Le LTN, lui, doit
+maximiser $\text{Satisf}$, la satisfaction de la base de connaissance
+$\KB$ sur $D$ entier, avec $\KB$ réduite au seul axiome vu précédemment.
+Ce qui revient en pratique à minimiser la fonction de perte $L$ évaluée
+sur un mini-batch $B$ tiré de $D$.
+
+La baseline est entraînée pendant 30 epochs contre 20 pour le LTN,
+conformément au protocole utilisé dans le papier.
+
+Le seul hyperparamètre propre au LTN est $p$, celui du quantificateur
+existentiel, déjà rencontré. Il suit un planning progressif : $p=1$ sur
+les quatre premiers epochs, puis $2$, puis $4$, puis $6$ pour le reste de
+l'entraînement. Au début, le classifieur de chiffres est encore proche du
+hasard : un $p$ faible répartit le gradient sur toutes les combinaisons
+plausibles plutôt que de tout miser sur la meilleure hypothèse du moment,
+qui pourrait n'être bonne que par hasard. Le focus se resserre ensuite, au
+fur et à mesure que le classifieur devient fiable.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 23 — Etendre a plusieurs chiffres
+%  Idee unique : meme mecanisme (Diag + quantification gardee), mais
+%  sur deux nombres a deux chiffres : 4 images, 4 variables d1..d4,
+%  et la contrainte devient 10 d1 + d2 + 10 d3 + d4 = n. Prepare le
+%  contraste de la slide de resultats.
+% ------------------------------------------------------------------
+\begin{frame}{Étendre à plusieurs chiffres}
+  \begin{center}
+    \small La même idée, appliquée à deux nombres à deux chiffres.
+  \end{center}
+
+  \vspace{0.4em}
+  \footnotesize
+  \[
+    \forall\,\text{Diag}(x_1,x_2,y_1,y_2,n)\ \ \Big(\exists\,
+    d_1,d_2,d_3,d_4 : 10d_1+d_2+10d_3+d_4=n
+  \]
+  \[
+    \big(\text{Digit}(x_1,d_1)\land\text{Digit}(x_2,d_2)\land
+    \text{Digit}(y_1,d_3)\land\text{Digit}(y_2,d_4)\big)\Big)
+  \]
+
+  \vspace{0.3em}
+  \begin{center}
+  \small
+  \renewcommand{\arraystretch}{1.5}
+  \begin{tabular}{@{} l >{\raggedright\arraybackslash}m{4.3cm}
+                       >{\raggedright\arraybackslash}m{4.3cm} @{}}
+    \toprule
+    & {\color{ash}\scshape\footnotesize addition à un chiffre} &
+      {\color{accent}\scshape\footnotesize addition à deux chiffres} \\
+    \midrule
+    images par exemple & 2 (celle de $x$ et celle de $y$) & 4 (celles de
+      $x_1$, $x_2$, $y_1$ et $y_2$) \\
+    variables existentielles & $d_1,d_2$ & $d_1,d_2,d_3,d_4$ \\
+    contrainte & $d_1+d_2=n$ & $10d_1+d_2+10d_3+d_4=n$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 23 : Étendre à plusieurs chiffres}} \hfill \textit{$\approx$ 1 min 30}
+
+L'expérience s'étend naturellement à des nombres comportant plusieurs
+chiffres. On considère ici deux nombres à deux chiffres, donc quatre
+images en entrée, $x_1,x_2$ pour le premier nombre, $y_1,y_2$ pour le
+second.
+
+Le mécanisme reste rigoureusement le même que pour un seul chiffre :
+$\text{Diag}$ associe toujours le $i$-ème exemple de chaque variable, et
+la quantification existentielle reste gardée. Seule la contrainte change,
+puisqu'il faut maintenant reconstituer deux nombres à deux chiffres avant
+de les additionner : $10d_1+d_2$ pour le premier nombre, $10d_3+d_4$ pour
+le second, et leur somme doit égaler $n$.
+
+Rien d'autre ne change dans la théorie. Le classifieur $\text{Digit}$
+est le même réseau convolutif, appliqué quatre fois plutôt que deux ; il
+n'a toujours accès à aucune étiquette individuelle, seulement à la somme
+finale $n$.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 24 — Resultats
+%  Idee unique : sur un chiffre, LTN et baseline se valent ; sur deux
+%  chiffres, la baseline s'effondre en test alors que le LTN generalise.
+%  Chiffres tires des sorties reelles du notebook (derniere epoch).
+% ------------------------------------------------------------------
+\begin{frame}{Résultats}
+  \begin{center}
+    \small Accuracy en test, à la dernière epoch.
+  \end{center}
+
+  \vspace{0.5em}
+  \begin{center}
+  \renewcommand{\arraystretch}{1.6}
+  \begin{tabular}{@{} l c c @{}}
+    \toprule
+    & {\color{accent}\scshape\footnotesize LTN} &
+      {\color{ash}\scshape\footnotesize baseline} \\
+    \midrule
+    addition à un chiffre & $97\,\%$ & $97\,\%$ \\
+    addition à deux chiffres & $95\,\%$ & \alert{$45\,\%$} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+
+  \vspace{0.6em}
+  \begin{center}
+    \small Sur un seul chiffre, les deux approches se valent. Sur deux
+    chiffres, la baseline \alert{s'effondre en test} alors que le LTN
+    reste stable.
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 24 : Résultats}} \hfill \textit{$\approx$ 2 min}
+
+Sur l'addition à un seul chiffre, les deux approches obtiennent une
+accuracy de test très proche, autour de $97\,\%$. Sur ce cas le plus
+simple, connaître la structure logique n'apporte donc pas d'avantage
+mesurable : le problème est suffisamment contraint pour qu'un réseau
+purement supervisé l'apprenne tout aussi bien.
+
+L'écart apparaît sur l'addition à deux chiffres. Le LTN reste stable,
+autour de $95\,\%$ de test. La baseline, elle, s'effondre à environ
+$45\,\%$, alors même que son accuracy d'entraînement reste élevée : elle
+mémorise, elle ne généralise pas.
+
+La raison tient à la structure du problème. La baseline doit prédire
+directement la somme parmi $199$ classes possibles pour deux nombres à
+deux chiffres, avec peu d'exemples par classe. Le LTN, lui, apprend à
+distinguer les $10$ chiffres possibles pour chaque entrée, puis la règle
+logique combine cette information pour déterminer la somme. Il n'a donc
+pas besoin d'apprendre directement les $199$ sommes possibles.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 25 — Courbes d'entrainement
+%  Idee unique : les memes chiffres que le tableau precedent, mais vus
+%  au fil de l'entrainement. Deux figures issues du notebook.
+% ------------------------------------------------------------------
+\begin{frame}{Résultats en détail}
+  \begin{center}
+    {\scriptsize\color{ash} addition à un chiffre}\\[0.3em]
+    \includegraphics[width=0.58\textwidth]{images/addition-1-chiffre.png}
+  \end{center}
+
+  \vspace{-0.3em}
+  \begin{center}
+    {\scriptsize\color{ash} addition à deux chiffres}\\[0.3em]
+    \includegraphics[width=0.58\textwidth]{images/addition-2-chiffres.png}
+  \end{center}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 25 : Résultats en détail}} \hfill \textit{$\approx$ 1 min 30}
+
+Ces courbes montrent la même comparaison que le tableau précédent, mais
+suivie au fil de l'entraînement.
+
+Sur l'addition à un chiffre, les courbes de test de la baseline et du
+LTN se superposent presque du début à la fin : les deux convergent vers
+la même accuracy.
+
+Sur l'addition à deux chiffres, l'écart apparaît clairement : la courbe
+d'entraînement de la baseline continue de monter, mais sa courbe de test
+plafonne bien plus bas, signe d'un surapprentissage. Le LTN, lui, garde
+ses courbes de train et de test proches l'une de l'autre.
+
+À droite, le niveau de satisfaction logique progresse par paliers, qui
+correspondent exactement aux changements de $p$ déjà présentés : la
+satisfaction augmente à chaque fois que $p$ devient plus exigeant.
+}
+
+% ============================================================
+\section{Conclusion}
+
+% ------------------------------------------------------------------
+%  SLIDE 26 — Ce qu'il faut retenir
+%  Idee unique : synthese des idees cles du parcours complet, pas de
+%  contenu nouveau. Suit le fil : grounding, satisfaction/SatAgg,
+%  diag/gardee, cas d'etude.
+% ------------------------------------------------------------------
+\begin{frame}{Ce qu'il faut retenir}
+  \begin{itemize}
+    \item Un LTN fixe la \alert{forme} d'un prédicat par une formule
+      logique ; le \alert{contenu} qu'il calcule reste appris par le
+      gradient.
+    \item Le grounding $\mathcal{G}$ relie chaque symbole à un tenseur,
+      et chaque formule à un réel dans $[0,1]$ : la logique devient
+      différentiable.
+    \item Apprendre revient à maximiser $\mathrm{SatAgg}$, la
+      satisfaction agrégée d'une base de connaissances, exactement comme
+      minimiser une perte.
+    \item La quantification diagonale et la quantification gardée
+      permettent d'injecter des contraintes structurelles précises,
+      plutôt que d'agréger sans discernement.
+    \item Sur le cas d'étude, cette structure logique permet au LTN de
+      \alert{généraliser} là où une baseline purement supervisée
+      \alert{mémorise}.
+  \end{itemize}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 26 : Ce qu'il faut retenir}} \hfill \textit{$\approx$ 1 min 30}
+
+Reprenons les idées centrales de ce parcours.
+
+Un Logic Tensor Network fixe la forme d'un prédicat au moyen d'une
+formule logique, mais laisse le contenu qu'il calcule être appris par le
+gradient. C'est le compromis neuro-symbolique présenté en introduction.
+
+Techniquement, cela repose sur le grounding $\mathcal{G}$ : chaque
+symbole devient un tenseur, chaque formule devient un réel dans
+$[0,1]$, ce qui rend toute la logique différentiable.
+
+Apprendre un LTN, c'est alors maximiser $\mathrm{SatAgg}$, la
+satisfaction agrégée d'une base de connaissances, un problème
+d'optimisation continue en tout point comparable à minimiser une perte.
+
+Deux mécanismes précisent cette agrégation : la quantification
+diagonale, qui associe les bons éléments entre eux plutôt que de tout
+combiner, et la quantification gardée, qui restreint l'agrégation aux
+seules combinaisons compatibles avec une contrainte.
+
+Et sur notre cas d'étude, cette structure logique a un effet concret et
+mesuré : elle permet au LTN de généraliser sur l'addition à plusieurs
+chiffres, là où une baseline purement supervisée se contente de
+mémoriser les exemples d'entraînement.
+}
+
+% ------------------------------------------------------------------
+%  SLIDE 27 — References
+%  Idee unique : sources citees ou implicitement utilisees dans le
+%  deck (papier LTN, papier DeepProbLog, notebooks du depot).
+% ------------------------------------------------------------------
+\begin{frame}{Références}
+  \small
+  \begin{thebibliography}{99}
+    \bibitem{ltn} S.~Badreddine, A.~d'Avila Garcez, L.~Serafini,
+      M.~Spranger. \emph{Logic Tensor Networks}. Artificial
+      Intelligence, 2022.
+    \bibitem{deepproblog} R.~Manhaeve, S.~Dumančić, A.~Kimmig,
+      T.~Demeester, L.~De Raedt. \emph{DeepProbLog: Neural Probabilistic
+      Logic Programming}. NeurIPS, 2018.
+    \bibitem{mnist} Y.~LeCun, C.~Cortes, C.~Burges. \emph{The MNIST
+      Database of Handwritten Digits}.
+    \bibitem{ltntorch} LTNtorch, l'implémentation PyTorch de Logic
+      Tensor Networks, et ses notebooks tutoriels.
+    \bibitem{repo} Code et implémentation de cette présentation :
+      \url{https://github.com/vleonel-junior/logic-tensor-networks}
+  \end{thebibliography}
+\end{frame}
+
+\note{%
+\textbf{\textcolor{accent}{Slide 27 : Références}} \hfill \textit{$\approx$ 30 s}
+
+Pour finir, les sources principales de cette présentation : l'article
+Logic Tensor Networks, qui fonde tout le formalisme présenté ; l'article
+DeepProbLog, qui a introduit le cas d'étude de l'addition de chiffres
+manuscrits ; le jeu de données MNIST, utilisé pour cette tâche ; et les
+notebooks tutoriels de LTNtorch, dont sont issus les exemples et le code
+présentés. Le code de cette présentation, notamment l'implémentation du
+cas d'étude, est disponible sur le dépôt GitHub indiqué en dernière
+ligne.
+}
+
+\end{document}

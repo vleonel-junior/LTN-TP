@@ -1,0 +1,18 @@
+% ============================================================
+%  VERSION ANNOTEE (pour l'orateur uniquement)
+% ------------------------------------------------------------
+%  Ce fichier ne contient AUCUN contenu : il se contente
+%  d'activer les notes puis de charger main.tex.
+%  Toute modification du fond se fait dans main.tex.
+%
+%  Compilation :  latexmk -pdf main-notes.tex   ->  main-notes.pdf
+%
+%  Modes disponibles :
+%    cote   : page large, diapo a gauche + notes a droite
+%             (le plus pratique pour parler : une page par diapo)
+%    pages  : diapo, puis page de notes, en alternance
+%             (le plus pratique pour imprimer)
+%    seules : les notes seules, sans les diapos
+% ============================================================
+\def\NOTESMODE{cote}
+\input{main}
